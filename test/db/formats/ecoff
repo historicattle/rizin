@@ -1,0 +1,312 @@
+NAME=MIPS ECOFF
+FILE=bins/ecoff/mips/fsn.ECOFF
+ARGS=-F ecoff
+CMDS=<<EOF
+echo "=== bin ==="
+iH
+echo "=== info ==="
+it
+echo "=== entrypoints ==="
+iet
+echo "=== exports ==="
+iEt
+echo "=== imports ==="
+iit
+echo "=== symbols ==="
+ist
+echo "=== sections ==="
+iSt
+echo "=== init0 ==="
+af
+pdf
+EOF
+EXPECT=<<EOF
+=== bin ===
+filehdr:
+  f_magic: "MIPS1 big endian (0x0160)"
+  f_nscns: 11
+  f_timdat: "Wed Mar 11 01:39:55 1992 UTC"
+  f_symptr: 0x0
+  f_nsyms: 0
+  f_opthdr: 0x38
+  f_flags:
+    value: 0x607
+    readable:
+      - "F_RELFLG"
+      - "F_EXEC"
+      - "F_LNNO"
+aouthdr:
+  magic: "ZMAGIC (0x010b)"
+  vstamp: "v2.40"
+  tsize: 0x54000
+  dsize: 0x1e000
+  bsize: 0x2d8b0
+  entry: 0x400210
+  text_start: 0x400000
+  data_start: 0x10000000
+  bss_start: 0x1001e000
+  gpr_mask: 0xf3fffffe
+  cpr_mask:
+    - 0x0
+    - 0xffffffff
+    - 0x0
+    - 0x0
+  gp_value: 0x10023ea0
+sections:
+  - s_name: ".text"
+    s_paddr: 0x400210
+    s_vaddr: 0x400210
+    s_size: 0x51190
+    s_scnptr: 0x210
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x20
+      readable:
+        - "STYP_TEXT"
+  - s_name: ".init"
+    s_paddr: 0x4513a0
+    s_vaddr: 0x4513a0
+    s_size: 0x29c0
+    s_scnptr: 0x513a0
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x80000000
+      readable:
+        - "STYP_INIT"
+  - s_name: ".rdata"
+    s_paddr: 0x10000000
+    s_vaddr: 0x10000000
+    s_size: 0x8d0
+    s_scnptr: 0x54000
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x100
+      readable:
+        - "STYP_RDATA"
+  - s_name: ".data"
+    s_paddr: 0x100008d0
+    s_vaddr: 0x100008d0
+    s_size: 0x1b5e0
+    s_scnptr: 0x548d0
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x40
+      readable:
+        - "STYP_DATA"
+  - s_name: ".lit8"
+    s_paddr: 0x1001beb0
+    s_vaddr: 0x1001beb0
+    s_size: 0x2f0
+    s_scnptr: 0x6feb0
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x8000000
+      readable:
+        - "STYP_LIT8"
+  - s_name: ".lit4"
+    s_paddr: 0x1001c1a0
+    s_vaddr: 0x1001c1a0
+    s_size: 0xa0
+    s_scnptr: 0x701a0
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x10000000
+      readable:
+        - "STYP_LIT4"
+  - s_name: ".sdata"
+    s_paddr: 0x1001c240
+    s_vaddr: 0x1001c240
+    s_size: 0x1b60
+    s_scnptr: 0x70240
+    s_relptr: 0x0
+    s_lnnoptr: 0x72130
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x200
+      readable:
+        - "STYP_SDATA"
+  - s_name: ".sbss"
+    s_paddr: 0x1001dda0
+    s_vaddr: 0x1001dda0
+    s_size: 0x590
+    s_scnptr: 0x0
+    s_relptr: 0x0
+    s_lnnoptr: 0x72130
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x400
+      readable:
+        - "STYP_SBSS"
+  - s_name: ".bss"
+    s_paddr: 0x1001e330
+    s_vaddr: 0x1001e330
+    s_size: 0x2d580
+    s_scnptr: 0x0
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x80
+      readable:
+        - "STYP_BSS"
+  - s_name: ".lib"
+    s_paddr: 0x5
+    s_vaddr: 0x0
+    s_size: 0x130
+    s_scnptr: 0x72000
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x40000000
+      readable:
+        - "STYP_LIB"
+  - s_name: "rsrc"
+    s_paddr: 0x0
+    s_vaddr: 0x0
+    s_size: 0x0
+    s_scnptr: 0x0
+    s_relptr: 0x0
+    s_lnnoptr: 0x0
+    s_nreloc: 0x0
+    s_nlnno: 0x0
+    s_flags:
+      value: 0x200000
+      readable:
+        - "STYP_RESOURCE"
+symbols:
+
+=== info ===
+fd       3
+file     bins/ecoff/mips/fsn.ECOFF
+size     0x72130
+humansz  456.3K
+mode     r-x
+format   ecoff
+iorw     false
+block    0x100
+type     ECOFF (Executable file)
+arch     mips
+cpu      mips1
+features N/A
+baddr    ----------
+binsz    0x00072130
+bintype  ecoff
+bits     32
+retguard false
+class    coff
+compiler N/A
+dbg_file N/A
+endian   BE
+hdr.csum N/A
+guid     N/A
+intrp    N/A
+laddr    0x00000000
+lang     N/A
+machine  MIPS I BE
+maxopsz  4
+minopsz  4
+os       any
+cc       N/A
+pcalign  4
+rpath    N/A
+subsys   any
+stripped true
+crypto   false
+havecode true
+va       true
+sanitiz  false
+static   true
+linenum  false
+lsyms    false
+canary   false
+PIE      false
+RELROCS  false
+NX       false
+=== entrypoints ===
+     vaddr      paddr     hvaddr      haddr type 
+-------------------------------------------------
+0x00400210 0x00000210 ---------- ---------- init
+=== exports ===
+nth paddr vaddr bind type size lib name 
+----------------------------------------
+=== imports ===
+nth vaddr bind type lib name 
+-----------------------------
+=== symbols ===
+nth      paddr      vaddr bind  type   size lib name 
+-----------------------------------------------------
+  0 0x00005b70 0x10023ea0 LOCAL NOTYPE    0     _gp
+=== sections ===
+     paddr    size      vaddr   vsize align perm name   type flags         
+---------------------------------------------------------------------------
+0x00000210 0x51190 0x00400210 0x51190   0x0 -rw- .text       STYP_TEXT
+0x000513a0  0x29c0 0x004513a0  0x29c0   0x0 -r-x .init       STYP_INIT
+0x00054000   0x8d0 0x10000000   0x8d0   0x0 -r-- .rdata      STYP_RDATA
+0x000548d0 0x1b5e0 0x100008d0 0x1b5e0   0x0 -rw- .data       STYP_DATA
+0x0006feb0   0x2f0 0x1001beb0   0x2f0   0x0 -r-- .lit8       STYP_LIT8
+0x000701a0    0xa0 0x1001c1a0    0xa0   0x0 -r-- .lit4       STYP_LIT4
+0x00070240  0x1b60 0x1001c240  0x1b60   0x0 -rw- .sdata      STYP_SDATA
+0x00000000   0x590 0x1001dda0   0x590   0x0 -rw- .sbss       STYP_SBSS
+0x00000000 0x2d580 0x1001e330 0x2d580   0x0 -rw- .bss        STYP_BSS
+0x00072000   0x130 0x00000000   0x130   0x0 sr-x .lib        STYP_LIB
+0x00000000     0x0 0x00000000     0x0   0x0 -r-- rsrc        STYP_RESOURCE
+=== init0 ===
+            ;-- section..text:
+/ entry.init0(int32_t arg_4h, int32_t arg2, int32_t arg3, int32_t arg1);
+|           ; arg int32_t arg1 @ a0
+|           ; arg int32_t arg2 @ a1
+|           ; arg int32_t arg3 @ a2
+|           ; var int32_t var_4h @ stack - 0x4
+|           ; arg int32_t arg_4h @ stack + 0x4
+|           0x00400210      lw    a0, (var_4h + 0x4)                   ; [00] -rw- section size 332176 named .text
+|           0x00400214      lui   gp, 0x1002
+|           0x00400218      addiu a1, sp, 4                            ; arg2
+|           0x0040021c      addiu gp, gp, 0x3ea0
+|           0x00400220      addiu a2, a1, 4                            ; arg3
+|           0x00400224      sll   v0, a0, 2                            ; arg1
+|           0x00400228      sw    a1, -0x5c5c(gp)
+|           0x0040022c      addu  a2, a2, v0                           ; arg3
+|           0x00400230      addiu sp, sp, -0x18
+|           0x00400234      sw    a2, -0x7c60(gp)
+|           0x00400238      sw    zero, (var_4h)
+|           0x0040023c      move  fp, zero
+|           0x00400240      jal   fcn.004513ac
+|           0x00400244      sw    a0, -0x5c60(gp)
+|           0x00400248      jal   fcn.00447940
+|           0x0040024c      nop
+|           0x00400250      jal   fcn.00447950
+|           0x00400254      move  a0, zero
+|           0x00400258      lw    a0, -0x5c60(gp)                      ; [0x1001e240:4]=0xafa80054
+|           0x0040025c      lw    a1, -0x5c5c(gp)                      ; [0x1001e244:4]=0xafb90050
+|           0x00400260      lw    a2, -0x7c60(gp)                      ; section..sdata
+|                                                                      ; [0x1001c240:4]=0
+|           0x00400264      jal   fcn.00400938
+|           0x00400268      nop
+|           0x0040026c      jal   fcn.00447700
+|           0x00400270      move  a0, v0
+\           0x00400274      break
+EOF
+RUN

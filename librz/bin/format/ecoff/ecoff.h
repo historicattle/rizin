@@ -181,6 +181,9 @@
 #define ECOFF_FDE_LANG_CXX       12
 #define ECOFF_FDE_LANG_FORTRAN90 13
 #define ECOFF_FDE_LANG_BLISS     14
+#define ECOFF_FDE_LANG_PTAL      15
+#define ECOFF_FDE_LANG_CXX_V1    16
+#define ECOFF_FDE_LANG_CXX_V2    17
 
 #define ECOFF_FDE_GLEVEL_0 2
 #define ECOFF_FDE_GLEVEL_1 1
@@ -368,13 +371,13 @@ typedef struct ecoff_file_descriptor_entry_alpha_t {
 	st32 caux; /* Count of auxiliary symbol entries for this file. */
 	st32 rfd_base; /* Starting index of relative file descriptors for this file. */
 	st32 crfd; /* Count of relative file descriptors for this file. */
-	ut32 lang; /* : 5 | Source language for this file */
-	ut32 f_merge; /* : 1 | Informs linker whether this file can be merged. */
-	ut32 f_readin; /* : 1 | True if file was read in (as opposed to just created). */
-	ut32 f_bigendian; /* : 1 | Unused. */
-	ut32 glevel; /* : 2 | Symbolic information level with which this file was compiled. */
-	ut32 f_trim; /* : 1 | Unused. */
-	ut32 reserved; /* : 5 | reserved bits */
+	ut16 lang; /* : 5 | Source language for this file */
+	ut16 f_merge; /* : 1 | Informs linker whether this file can be merged. */
+	ut16 f_readin; /* : 1 | True if file was read in (as opposed to just created). */
+	ut16 f_bigendian; /* : 1 | Unused. */
+	ut16 glevel; /* : 2 | Symbolic information level with which this file was compiled. */
+	ut16 f_trim; /* : 1 | Unused. */
+	ut16 reserved; /* : 5 | reserved bits */
 	ut8 vstamp[2]; /* Symbol table version stamp from the .o files. */
 	ut32 reserved2; /* reserved bytes */
 } ECoff_FileDescEntry_Alpha;
@@ -455,6 +458,8 @@ typedef struct ecoff_alpha_t {
 	ECoff_AOutHdr_Alpha aouthdr;
 	ECoff_SymHdr_Alpha symhdr;
 	RzVector /*<ECoff_Section_Alpha>*/ *sections;
+	RzVector /*<ECoff_FileDescEntry_Alpha>*/ *file_descs;
+	RzVector /*<ECoff_ProcDescrEntry_Alpha>*/ *proc_descs;
 	RzVector /*<ECoff_LocalSymbol_Alpha>*/ *local_symbols;
 	RzVector /*<ECoff_ExternSymbol_Alpha>*/ *extern_symbols;
 } ECoff_Alpha;

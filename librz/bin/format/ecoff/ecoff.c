@@ -56,6 +56,8 @@ void ecoff_free(ECoff *ecoff) {
 
 	if (ecoff_is_alpha(ecoff)) {
 		rz_vector_free(ecoff->alpha.sections);
+		rz_vector_free(ecoff->alpha.file_descs);
+		rz_vector_free(ecoff->alpha.proc_descs);
 		rz_vector_free(ecoff->alpha.local_symbols);
 		rz_vector_free(ecoff->alpha.extern_symbols);
 	} else {
@@ -266,7 +268,7 @@ static bool ecoff_init_sections(RzBuffer *b, ut64 *offset, ECoff *ecoff) {
 	return ecoff_init_sections_mips(b, offset, ecoff);
 }
 
-static bool ecoff_init_symbol(RzBuffer *b, ut64 *offset, ECoff_Symbol_Mips *symbol, bool big_endian) {
+static bool ecoff_init_symbol_mips(RzBuffer *b, ut64 *offset, ECoff_Symbol_Mips *symbol, bool big_endian) {
 	return rz_buf_read_offset(b, offset, (ut8 *)symbol->e_name, sizeof(symbol->e_name)) &&
 		rz_buf_read_ble32_offset(b, offset, &symbol->e_value, big_endian) &&
 		rz_buf_read_ble16_offset(b, offset, (ut16 *)&symbol->e_scnum, big_endian) &&
@@ -293,7 +295,7 @@ static bool ecoff_init_mips_symbols(RzBuffer *b, ECoff *ecoff, const st64 f_symp
 	const size_t count = ecoff->header.f_nsyms;
 	for (size_t i = 0; i < count; ++i) {
 		ECoff_Symbol_Mips symbol = { 0 };
-		if (!ecoff_init_symbol(b, &offset, &symbol, ecoff->big_endian)) {
+		if (!ecoff_init_symbol_mips(b, &offset, &symbol, ecoff->big_endian)) {
 			return false;
 		}
 		symbol.resolved_name = ecoff_resolve_name(b, ecoff, symbol.e_name);
@@ -331,6 +333,66 @@ static bool ecoff_init_symbolic_header_alpha(RzBuffer *b, ut64 *offset, ECoff_Sy
 		rz_buf_read_ble64_offset(b, offset, &symhdr->cb_ext_offset, big_endian);
 }
 
+static bool ecoff_init_file_descriptor_entry_alpha(RzBuffer *b, ut64 *offset, ECoff_FileDescEntry_Alpha *fde, bool big_endian) {
+	// stores the bit fields that needs to be extracted later
+	ut16 bit_fields = 0;
+
+	bool ok = rz_buf_read_ble64_offset(b, offset, &fde->adr, big_endian) &&
+		rz_buf_read_ble64_offset(b, offset, (ut64 *)&fde->cb_line_offset, big_endian) &&
+		rz_buf_read_ble64_offset(b, offset, (ut64 *)&fde->cb_line, big_endian) &&
+		rz_buf_read_ble64_offset(b, offset, (ut64 *)&fde->cb_ss, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->rss, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->iss_base, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->isym_base, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->csym, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->iline_base, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->cline, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->iopt_base, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->copt, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->ipd_first, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->cpd, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->iaux_base, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->caux, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->rfd_base, big_endian) &&
+		rz_buf_read_ble32_offset(b, offset, (ut32 *)&fde->crfd, big_endian) &&
+		rz_buf_read_ble16_offset(b, offset, &bit_fields, big_endian) &&
+		rz_buf_read_offset(b, offset, fde->vstamp, sizeof(fde->vstamp)) &&
+		rz_buf_read_ble32_offset(b, offset, &fde->reserved2, big_endian);
+
+	if (ok) {
+		fde->lang = bit_fields & 0x1f; // lang : 5;
+		fde->f_merge = (bit_fields >> 5) & 1; // f_merge : 1;
+		fde->f_readin = (bit_fields >> 6) & 1; // f_readin : 1;
+		fde->f_bigendian = (bit_fields >> 7) & 1; // f_bigendian : 1;
+		fde->glevel = (bit_fields >> 8) & 3; // glevel : 2;
+		fde->f_trim = (bit_fields >> 10) & 1; // f_trim : 1;
+		fde->reserved = (bit_fields >> 11) & 0x1f; // reserved : 5;
+	}
+	return ok;
+}
+
+static bool ecoff_init_file_descriptor_entries_alpha(RzBuffer *b, ECoff *ecoff) {
+	ecoff->alpha.file_descs = rz_vector_new(sizeof(ECoff_FileDescEntry_Alpha), NULL, NULL);
+	if (!ecoff->alpha.file_descs) {
+		return false;
+	} else if (ecoff->alpha.symhdr.ifd_max < 1) {
+		// nothing to parse.
+		return true;
+	}
+
+	ut64 offset = ecoff->alpha.symhdr.cb_fd_offset;
+	size_t count = ecoff->alpha.symhdr.ifd_max;
+	for (size_t i = 0; i < count; ++i) {
+		ECoff_FileDescEntry_Alpha fde = { 0 };
+		if (!ecoff_init_file_descriptor_entry_alpha(b, &offset, &fde, ecoff->big_endian)) {
+			return false;
+		}
+
+		rz_vector_push(ecoff->alpha.file_descs, &fde);
+	}
+	return true;
+}
+
 static bool ecoff_init_alpha_symbols(RzBuffer *b, ECoff *ecoff, const st64 f_symptr) {
 	ut64 offset = f_symptr;
 	if (!f_symptr) {
@@ -338,7 +400,13 @@ static bool ecoff_init_alpha_symbols(RzBuffer *b, ECoff *ecoff, const st64 f_sym
 		return true;
 	}
 
-	return ecoff_init_symbolic_header_alpha(b, &offset, &ecoff->alpha.symhdr, ecoff->big_endian);
+	// ecoff->alpha.proc_descs = rz_vector_new(sizeof(ECoff_ProcDescrEntry_Alpha), NULL, NULL);
+	// if (!ecoff->alpha.proc_descs) {
+	// 	return false;
+	// }
+
+	return ecoff_init_symbolic_header_alpha(b, &offset, &ecoff->alpha.symhdr, ecoff->big_endian) &&
+		ecoff_init_file_descriptor_entries_alpha(b, ecoff);
 }
 
 static bool ecoff_init_symbols(RzBuffer *b, ECoff *ecoff) {
@@ -1364,7 +1432,7 @@ static bool ecoff_mips_symbols_to_structure(const ECoff *ecoff, RzStructuredData
 	return true;
 }
 
-static bool ecoff_alpha_symbolic_hdr_alpha_to_structure(const ECoff *ecoff, RzStructuredData *parent) {
+static bool ecoff_alpha_symbolic_hdr_to_structure(const ECoff *ecoff, RzStructuredData *parent) {
 	const ECoff_SymHdr_Alpha *symhdr = &ecoff->alpha.symhdr;
 	RzStructuredData *symbolic_hdr = rz_structured_data_map_add_map(parent, "symbolic_hdr");
 	if (!symbolic_hdr) {
@@ -1400,8 +1468,122 @@ static bool ecoff_alpha_symbolic_hdr_alpha_to_structure(const ECoff *ecoff, RzSt
 		rz_structured_data_map_add_unsigned(symbolic_hdr, "cb_ext_offset", symhdr->cb_ext_offset, true);
 }
 
+static const char *ecoff_alpha_file_descr_entry_get_lang(const ECoff_FileDescEntry_Alpha *fde) {
+	switch (fde->lang) {
+	case ECOFF_FDE_LANG_C:
+		return "C";
+	case ECOFF_FDE_LANG_PASCAL:
+		return "Pascal";
+	case ECOFF_FDE_LANG_FORTRAN:
+		return "Fortran";
+	case ECOFF_FDE_LANG_ASSEMBLER:
+		return "Assembly";
+	case ECOFF_FDE_LANG_MACHINE:
+		return "Machine";
+	case ECOFF_FDE_LANG_NIL:
+		return "Nil";
+	case ECOFF_FDE_LANG_ADA:
+		return "Ada";
+	case ECOFF_FDE_LANG_PL1:
+		return "Pl1";
+	case ECOFF_FDE_LANG_COBOL:
+		return "Cobol";
+	case ECOFF_FDE_LANG_STDC:
+		return "stdC";
+	case ECOFF_FDE_LANG_MIPS_CXX:
+		return "Mips C++";
+	case ECOFF_FDE_LANG_DEC_CXX:
+		return "Dec C++";
+	case ECOFF_FDE_LANG_CXX:
+		return "C++";
+	case ECOFF_FDE_LANG_FORTRAN90:
+		return "Fortran 90";
+	case ECOFF_FDE_LANG_BLISS:
+		return "Bliss";
+	case ECOFF_FDE_LANG_PTAL:
+		return "PTAL";
+	case ECOFF_FDE_LANG_CXX_V1:
+		return "C++v1";
+	case ECOFF_FDE_LANG_CXX_V2:
+		return "C++v2";
+	default:
+		return "unknown";
+	}
+}
+
+static const char *ecoff_alpha_file_descr_entry_get_glevel(const ECoff_FileDescEntry_Alpha *fde) {
+	switch (fde->glevel) {
+	case ECOFF_FDE_GLEVEL_0:
+		return "-g0";
+	case ECOFF_FDE_GLEVEL_1:
+		return "-g1";
+	case ECOFF_FDE_GLEVEL_2:
+		return "-g2";
+	case ECOFF_FDE_GLEVEL_3:
+		return "-g3";
+	default:
+		return "unknown";
+	}
+}
+
+static bool ecoff_alpha_file_descr_entry_to_structure(const ECoff_FileDescEntry_Alpha *fde, RzStructuredData *parent) {
+	RzStructuredData *fde_info = rz_structured_data_array_add_map(parent);
+	if (!fde_info) {
+		return false;
+	}
+
+	const char *glevel = ecoff_alpha_file_descr_entry_get_glevel(fde);
+	const char *lang = ecoff_alpha_file_descr_entry_get_lang(fde);
+	char vstamp[16] = { 0 };
+	rz_strf(vstamp, "v%u.%u", fde->vstamp[1], fde->vstamp[0]);
+
+	return rz_structured_data_map_add_unsigned(fde_info, "adr", fde->adr, true) &&
+		rz_structured_data_map_add_signed(fde_info, "cb_line_offset", fde->cb_line_offset) &&
+		rz_structured_data_map_add_signed(fde_info, "cb_line", fde->cb_line) &&
+		rz_structured_data_map_add_signed(fde_info, "cb_ss", fde->cb_ss) &&
+		rz_structured_data_map_add_signed(fde_info, "rss", fde->rss) &&
+		rz_structured_data_map_add_signed(fde_info, "iss_base", fde->iss_base) &&
+		rz_structured_data_map_add_signed(fde_info, "isym_base", fde->isym_base) &&
+		rz_structured_data_map_add_signed(fde_info, "csym", fde->csym) &&
+		rz_structured_data_map_add_signed(fde_info, "iline_base", fde->iline_base) &&
+		rz_structured_data_map_add_signed(fde_info, "cline", fde->cline) &&
+		rz_structured_data_map_add_signed(fde_info, "iopt_base", fde->iopt_base) &&
+		rz_structured_data_map_add_signed(fde_info, "copt", fde->copt) &&
+		rz_structured_data_map_add_signed(fde_info, "ipd_first", fde->ipd_first) &&
+		rz_structured_data_map_add_signed(fde_info, "cpd", fde->cpd) &&
+		rz_structured_data_map_add_signed(fde_info, "iaux_base", fde->iaux_base) &&
+		rz_structured_data_map_add_signed(fde_info, "caux", fde->caux) &&
+		rz_structured_data_map_add_signed(fde_info, "rfd_base", fde->rfd_base) &&
+		rz_structured_data_map_add_signed(fde_info, "crfd", fde->crfd) &&
+		rz_structured_data_map_add_string(fde_info, "lang", lang) &&
+		rz_structured_data_map_add_boolean(fde_info, "f_merge", fde->f_merge) &&
+		rz_structured_data_map_add_boolean(fde_info, "f_readin", fde->f_readin) &&
+		rz_structured_data_map_add_boolean(fde_info, "f_bigendian", fde->f_bigendian) &&
+		rz_structured_data_map_add_string(fde_info, "glevel", glevel) &&
+		rz_structured_data_map_add_boolean(fde_info, "f_trim", fde->f_trim) &&
+		rz_structured_data_map_add_unsigned(fde_info, "reserved", fde->reserved, true) &&
+		rz_structured_data_map_add_string(fde_info, "vstamp", vstamp) &&
+		rz_structured_data_map_add_unsigned(fde_info, "reserved2", fde->reserved2, true);
+}
+
+static bool ecoff_alpha_file_descr_entries_to_structure(const ECoff *ecoff, RzStructuredData *parent) {
+	RzStructuredData *fdes = rz_structured_data_map_add_array(parent, "fdes");
+	if (!fdes) {
+		return false;
+	}
+
+	const ECoff_FileDescEntry_Alpha *fde;
+	rz_vector_foreach (ecoff->alpha.file_descs, fde) {
+		if (!ecoff_alpha_file_descr_entry_to_structure(fde, fdes)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 static bool ecoff_alpha_symbols_to_structure(const ECoff *ecoff, RzStructuredData *parent) {
-	return ecoff_alpha_symbolic_hdr_alpha_to_structure(ecoff, parent);
+	return ecoff_alpha_symbolic_hdr_to_structure(ecoff, parent) &&
+		ecoff_alpha_file_descr_entries_to_structure(ecoff, parent);
 }
 
 static bool ecoff_symbols_to_structure(const ECoff *ecoff, RzStructuredData *parent) {

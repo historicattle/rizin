@@ -23,13 +23,8 @@ static bool ecoff_check_buffer(RzBuffer *buf) {
 }
 
 static bool ecoff_load_buffer(RzBinFile *bf, RzBinObject *obj, RzBuffer *buf, Sdb *sdb) {
-	ECoff *ecoff = RZ_NEW0(ECoff);
+	ECoff *ecoff = ecoff_parse_from_buffer(buf);
 	if (!ecoff) {
-		return false;
-	}
-
-	if (!ecoff_parse_from_buffer(buf, ecoff)) {
-		free(ecoff);
 		return false;
 	}
 	obj->bin_obj = ecoff;
@@ -37,7 +32,7 @@ static bool ecoff_load_buffer(RzBinFile *bf, RzBinObject *obj, RzBuffer *buf, Sd
 }
 
 static void ecoff_destroy(RzBinFile *bf) {
-	free((ECoff *)bf->o->bin_obj);
+	ecoff_free((ECoff *)bf->o->bin_obj);
 }
 
 static RzPVector /*<RzBinAddr *>*/ *ecoff_entries(RzBinFile *bf) {

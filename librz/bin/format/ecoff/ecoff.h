@@ -7,6 +7,7 @@
 
 #include <rz_util.h>
 #include <rz_bin.h>
+#include "ecoff_gen.h"
 
 // ECoff machine/magic types
 #define ECOFF_MACHINE_MIPS1     0x0180 // MIPS I
@@ -165,6 +166,10 @@
 // ECoff max number of relocs types.
 #define ECOFF_NUM_RELOCS 16
 
+// ECoff symbolic header
+#define ECOFF_SYMBOLIC_HEADER_MAGIC       0x7009
+#define ECOFF_SYMBOLIC_HEADER_MAGIC_ALPHA 0x1992
+
 // ECoff file descriptor table entry fields.
 #define ECOFF_FDE_LANG_C         0
 #define ECOFF_FDE_LANG_PASCAL    1
@@ -203,8 +208,11 @@
 #define ECOFF_LOCAL_SYM_ST_MEMBER     9 //  Member of class, structure, union, or enumeration
 #define ECOFF_LOCAL_SYM_ST_TYPEDEF    10 //  User-defined type definition
 #define ECOFF_LOCAL_SYM_ST_FILE       11 //  Source file name
+#define ECOFF_LOCAL_SYM_ST_REGRELOC   12 // register relocation
+#define ECOFF_LOCAL_SYM_ST_FORWARD    13 // forwarding address
 #define ECOFF_LOCAL_SYM_ST_STATICPROC 14 //  Static procedure
 #define ECOFF_LOCAL_SYM_ST_CONSTANT   15 //  Constant data
+#define ECOFF_LOCAL_SYM_ST_STAPARAM   16 // Fortran static parameters
 #define ECOFF_LOCAL_SYM_ST_BASE       17 //  Base class (for example, C++)
 #define ECOFF_LOCAL_SYM_ST_VIRTBASE   18 //  Virtual base class (for example, C++)
 #define ECOFF_LOCAL_SYM_ST_TAG        19 //  Data structure tag value (for example, C++ class or struct)
@@ -214,6 +222,14 @@
 #define ECOFF_LOCAL_SYM_ST_MODVIEW    23 // Modifiers for current view of given module;
 #define ECOFF_LOCAL_SYM_ST_USING      23 // Namespace use (for example, C++ "using").
 #define ECOFF_LOCAL_SYM_ST_ALIAS      24 // Defines an alias for another symbols. Currently, only used for namespace aliases.
+#define ECOFF_LOCAL_SYM_ST_STRUCT     26 // Beginning of block defining a struct type
+#define ECOFF_LOCAL_SYM_ST_UNION      27 // Beginning of block defining a union type
+#define ECOFF_LOCAL_SYM_ST_ENUM       28 // Beginning of block defining an enum type
+#define ECOFF_LOCAL_SYM_ST_INDIRECT   34 // Indirect type specification, Pseudo-symbols, internal to debugger
+#define ECOFF_LOCAL_SYM_ST_STR        60 // string
+#define ECOFF_LOCAL_SYM_ST_NUMBER     61 // pure number (ie. 4 NOR 2+2)
+#define ECOFF_LOCAL_SYM_ST_EXPR       62 // 2+2 vs. 4
+#define ECOFF_LOCAL_SYM_ST_TYPE       63 // post-coersion SER
 
 // ECoff local symbol storage class.
 #define ECOFF_LOCAL_SYM_SC_NIL          0 // Dummy entry
@@ -249,19 +265,6 @@
 
 // ECoff external symbol entry fields.
 
-typedef struct ecoff_header_t {
-	ut16 f_magic; /* magic/machine number */
-	ut16 f_nscns; /* number of sections */
-	st32 f_timedate; /* time & date stamp */
-	union {
-		st32 ptr32;
-		st64 ptr64;
-	} f_sym; /* file pointer to symtab */
-	st32 f_nsyms; /* number of symtab entries */
-	ut16 f_opthdr; /* size of ECoff_Optional */
-	ut16 f_flags; /* flags */
-} ECoff_Header;
-
 typedef struct ecoff_aouthdr_alpha_t {
 	ut16 magic; /* type of file */
 	ut8 vstamp[2]; /* version stamp */
@@ -294,139 +297,13 @@ typedef struct ecoff_aouthdr_mips_t {
 	ut32 gp_value; /* value for gp register */
 } ECoff_AOutHdr_Mips;
 
-typedef struct ecoff_section_alpha_t {
-	char s_name[8]; /* section entry name or an index to a name */
-	ut64 s_paddr; /* physical address */
-	ut64 s_vaddr; /* virtual address */
-	ut64 s_size; /* section size */
-	ut64 s_scnptr; /* file ptr to raw data for section */
-	ut64 s_relptr; /* file ptr to relocation */
-	ut64 s_lnnoptr; /* file ptr to line numbers */
-	ut16 s_nreloc; /* number of relocation entries */
-	ut16 s_nlnno; /* number of line number entries */
-	ut32 s_flags; /* flags */
-	/* not part of the actual section object */
-	char *resolved_name;
-} ECoff_Section_Alpha;
+ECOFF_GEN_TYPES(32);
+ECOFF_GEN_TYPES(64);
 
-typedef struct ecoff_section_mips_t {
-	char s_name[8]; /* section entry name or an index to a name */
-	ut32 s_paddr; /* physical address */
-	ut32 s_vaddr; /* virtual address */
-	ut32 s_size; /* section size */
-	ut32 s_scnptr; /* file ptr to raw data for section */
-	ut32 s_relptr; /* file ptr to relocation */
-	ut32 s_lnnoptr; /* file ptr to line numbers */
-	ut16 s_nreloc; /* number of relocation entries */
-	ut16 s_nlnno; /* number of line number entries */
-	ut32 s_flags; /* flags */
-	/* not part of the actual section object */
-	char *resolved_name;
-} ECoff_Section_Mips;
+#define COFF_SYMBOLIC_HDR_32_SIZE 96
+#define COFF_SYMBOLIC_HDR_64_SIZE 144
 
-typedef struct ecoff_symbolic_header_alpha_t {
-	st16 magic; /* Symbol table magic must be 0x1992 */
-	ut8 vstamp[2]; /* Symbol table version stamp (major.minor) */
-	st32 iline_max; /* Number of line number entries */
-	st32 idn_max; /* unused ? documentation mentions only "obsolete" */
-	st32 ipd_max; /* Number of procedure descriptors. */
-	st32 isym_max; /* Number of local symbols. */
-	st32 iopt_max; /* Size of optimization symbol table. */
-	st32 iaux_max; /* Number of auxiliary symbols. */
-	st32 iss_max; /* Size of local string table. */
-	st32 iss_ext_max; /* Size of external string table. */
-	st32 ifd_max; /* Number of file descriptors. */
-	st32 crfd; /* Number of relative file descriptors. */
-	st32 iext_max; /* Number of external symbols. */
-	st64 cb_line; /* Size of (packed) line number entries. */
-	ut64 cb_line_offset; /* Offset to start of (packed) line numbers. */
-	ut64 cb_dn_offset; /* unused ? documentation mentions only "obsolete" */
-	ut64 cb_pd_offset; /* Offset to start of procedure descriptors */
-	ut64 cb_sym_offset; /* Offset to start of local symbols */
-	ut64 cb_opt_offset; /* Offset to start of optimization entries */
-	ut64 cb_aux_offset; /* Offset to start of auxiliary symbols */
-	ut64 cb_ss_offset; /* Offset to start of local strings */
-	ut64 cb_ss_ext_offset; /* Offset to start of external strings. */
-	ut64 cb_fd_offset; /* Offset to start of file descriptors. */
-	ut64 cb_rfd_offset; /* Offset to start of relative file descriptors. */
-	ut64 cb_ext_offset; /* Offset to start of external symbols. */
-} ECoff_SymHdr_Alpha;
-
-typedef struct ecoff_file_descriptor_entry_alpha_t {
-	ut64 adr; /* Address of first instruction */
-	st64 cb_line_offset; /* Offset from start of packed line numbers to start of entries for this file */
-	st64 cb_line; /* Size of packed line numbers for this file. */
-	st64 cb_ss; /* Size of local string table entries for this file. */
-	st32 rss; /* Offset from start of file's local string table entries to source file name (-1 if unknown). */
-	st32 iss_base; /* Start of local strings for this file. */
-	st32 isym_base; /* Starting index of local symbol entries for this file */
-	st32 csym; /* Count of local symbol entries for this file. */
-	st32 iline_base; /* Starting index of line number entries (if expanded) for this file. */
-	st32 cline; /* Count of line number entries (if expanded) for this file. */
-	st32 iopt_base; /* Offset from start of optimization symbol table to optimization symbol entries for this file. */
-	st32 copt; /* Size of optimization symbol entries for this file. */
-	st32 ipd_first; /* Starting index of procedure descriptors for this file. */
-	st32 cpd; /* Count of procedure descriptors for this file. */
-	st32 iaux_base; /* Starting index of auxiliary symbol entries for this file. */
-	st32 caux; /* Count of auxiliary symbol entries for this file. */
-	st32 rfd_base; /* Starting index of relative file descriptors for this file. */
-	st32 crfd; /* Count of relative file descriptors for this file. */
-	ut16 lang; /* : 5 | Source language for this file */
-	ut16 f_merge; /* : 1 | Informs linker whether this file can be merged. */
-	ut16 f_readin; /* : 1 | True if file was read in (as opposed to just created). */
-	ut16 f_bigendian; /* : 1 | Unused. */
-	ut16 glevel; /* : 2 | Symbolic information level with which this file was compiled. */
-	ut16 f_trim; /* : 1 | Unused. */
-	ut16 reserved; /* : 5 | reserved bits */
-	ut8 vstamp[2]; /* Symbol table version stamp from the .o files. */
-	ut32 reserved2; /* reserved bytes */
-} ECoff_FileDescEntry_Alpha;
-
-typedef struct ecoff_procedure_descriptor_entry_alpha_t {
-	ut64 adr; /* The start address of this procedure. (-1 if no .text) */
-	st64 cb_line_offset; /* Offset to the start of this procedure's line numbers from the start of the file descriptor entry */
-	st32 isym; /* Start of local symbols for this procedure. */
-	st32 iline; /* Start of line number entries (if expanded) for this procedure (-1 if unknown). */
-	ut32 regmask; /* Saved general register mask */
-	st32 regoffset; /* Offset from the virtual frame pointer to the general register save area in the stack frame. */
-	st32 iopt; /* Start of procedure's optimization symbol entries. */
-	ut32 fregmask; /* Saved floating-point register mask. */
-	st32 fregoffset; /* Offset from the virtual frame pointer to the floating-point register save area in the stack frame. */
-	st32 frameoffset; /* Size of the fixed part of the stack frame. */
-	st32 ln_low; /* Lowest source line number within this file for the procedure */
-	st32 ln_high; /* Highest source line number within this file for the procedure */
-	ut32 gp_prologue; /* : 8 | Size of gp prologue. */
-	ut32 gp_used; /* : 1 | Flag set if the procedure uses gp. */
-	ut32 reg_frame; /* : 1 | True if the procedure is a light-weight or null-weight procedure. */
-	ut32 prof; /* : 1 | True if the procedure has been compiled with –pg for gprof profiling. */
-	ut32 reserved; /* : 13 | Must be zero. */
-	ut32 localoff; /* : 8 | Bias value for accessing local symbols on the stack at run time. */
-	st16 framereg; /* Frame pointer register number. */
-	st16 pcreg; /* PC (Program Counter) register number. */
-} ECoff_ProcDescrEntry_Alpha;
-
-typedef struct ecoff_local_symbol_alpha_t {
-	st64 value; /* A field that can contain an address, size, offset, or index. */
-	st32 iss; /* Offset from the iss_base field of a file descriptor table entry to the name of the symbol (-1 if no name). */
-	ut32 st; /* : 6 | Symbol type */
-	ut32 sc; /* : 5 | Storage class */
-	ut32 reserved; /* : 1 | Must be zero. */
-	ut32 index; /* : 20 | An index into either the local symbol table or auxiliary symbol table. */
-} ECoff_LocalSymbol_Alpha;
-
-typedef struct ecoff_external_symbol_alpha_t {
-	ECoff_LocalSymbol_Alpha asym; /* External symbol table entry */
-	ut32 jmptbl; /* : 1 | Unused. */
-	ut32 cobol_main; /* : 1 | Flag set to indicate that the symbol is a COBOL main procedure. */
-	ut32 weakext; /* : 1 | Flag set to identify the symbol as a weak external. */
-	ut32 alignment; /* : 4 | Power of two byte alignment for common storage class symbols biased by 2^3 (8) */
-	ut32 xport; /* : 1 | Flag set to indicate the symbol is to be exported from a shared library. */
-	ut32 multiext; /* : 1 | Flag set to indicate that multiple definitions of the symbol are allowed. */
-	ut32 reserved; /* : 23 | Must be zero. */
-	st32 ifd; /* Index of the file descriptor where the symbol is defined. (-1 for undefined) */
-} ECoff_ExternSymbol_Alpha;
-
-typedef struct ecoff_symbol_mips_t {
+typedef struct ecoff_symbol_t {
 	char e_name[8]; /* symbol entry name or an index to a name */
 	ut32 e_value; /* symbol value, storage class dependent */
 	st16 e_scnum; /* section number of the symbol */
@@ -435,46 +312,57 @@ typedef struct ecoff_symbol_mips_t {
 	ut8 e_numaux; /* number of auxiliary entries */
 	/* not part of the actual symbol object */
 	char *resolved_name;
-} ECoff_Symbol_Mips;
+} ECoff_Symbol_Old;
 
-#define COFF_SYMBOL_SIZE 18
+#define COFF_SYMBOL_OLD_SIZE 18
 
-typedef struct ecoff_reloc_t {
-	union {
-		ut64 r_vaddr64; // alpha
-		ut32 r_vaddr32; // mips
-	};
-	ut32 r_symndx; // Alpha only
+typedef struct ecoff_reloc_alpha_t {
+	ut64 r_vaddr64;
+	ut32 r_symndx;
 	ut32 r_bits;
-} ECoff_Reloc;
+} ECoff_Reloc_Alpha;
 
-typedef struct ecoff_mips_t {
-	ECoff_AOutHdr_Mips aouthdr;
-	RzVector /*<ECoff_Section_Mips>*/ *sections;
-	RzVector /*<ECoff_Symbol_Mips>*/ *symbols;
-} ECoff_Mips;
+typedef struct ecoff_reloc_mips_t {
+	ut32 r_vaddr;
+	ut32 r_bits;
+} ECoff_Reloc_Mips;
 
-typedef struct ecoff_alpha_t {
-	ECoff_AOutHdr_Alpha aouthdr;
-	ECoff_SymHdr_Alpha symhdr;
-	RzVector /*<ECoff_Section_Alpha>*/ *sections;
-	RzVector /*<ECoff_FileDescEntry_Alpha>*/ *file_descs;
-	RzVector /*<ECoff_ProcDescrEntry_Alpha>*/ *proc_descs;
-	RzVector /*<ECoff_LocalSymbol_Alpha>*/ *local_symbols;
-	RzVector /*<ECoff_ExternSymbol_Alpha>*/ *extern_symbols;
-} ECoff_Alpha;
+typedef struct ecoff_32_t {
+	ECoff_Header_32 header;
+	ECoff_SymHdr_32 symhdr;
+	RzVector /*<ECoff_FileDescEntry_32>*/ *file_descs;
+	RzVector /*<ECoff_ProcDescrEntry_32>*/ *proc_descs;
+	RzVector /*<ECoff_LocalSymbol_32>*/ *local_symbols;
+	RzVector /*<ECoff_ExternSymbol_32>*/ *extern_symbols;
+	RzVector /*<ECoff_Section_32>*/ *sections;
+	RzVector /*<ECoff_Symbol_Old>*/ *symbols_old;
+} ECoff_32;
+
+typedef struct ecoff_64_t {
+	ECoff_Header_64 header;
+	ECoff_SymHdr_64 symhdr;
+	RzVector /*<ECoff_Section_64>*/ *sections;
+	RzVector /*<ECoff_FileDescEntry_64>*/ *file_descs;
+	RzVector /*<ECoff_ProcDescrEntry_64>*/ *proc_descs;
+	RzVector /*<ECoff_LocalSymbol_64>*/ *local_symbols;
+	RzVector /*<ECoff_ExternSymbol_64>*/ *extern_symbols;
+} ECoff_64;
 
 typedef struct ecoff_t {
 	bool big_endian;
-	ECoff_Header header;
+	ut16 f_magic;
 	union {
-		ECoff_Mips mips;
-		ECoff_Alpha alpha;
+		ECoff_64 ecoff64;
+		ECoff_32 ecoff32;
 	};
+	union {
+		ECoff_AOutHdr_Mips mips;
+		ECoff_AOutHdr_Alpha alpha;
+	} aouthdr;
 } ECoff;
 
 void ecoff_free(ECoff *ecoff);
-bool ecoff_is_valid_buffer(RzBuffer *buffer, bool *big_endian);
+bool ecoff_is_valid_buffer(RzBuffer *buffer);
 ECoff *ecoff_parse_from_buffer(RzBuffer *buffer);
 RzPVector /*<RzBinAddr *>*/ *ecoff_get_entries(const ECoff *ecoff);
 RzPVector /*<RzBinSection *>*/ *ecoff_get_sections(const ECoff *ecoff);

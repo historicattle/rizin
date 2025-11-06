@@ -18,8 +18,7 @@ static Sdb *ecoff_get_sdb(RzBinFile *bf) {
 }
 
 static bool ecoff_check_buffer(RzBuffer *buf) {
-	bool big_endian = false;
-	return ecoff_is_valid_buffer(buf, &big_endian);
+	return ecoff_is_valid_buffer(buf);
 }
 
 static bool ecoff_load_buffer(RzBinFile *bf, RzBinObject *obj, RzBuffer *buf, Sdb *sdb) {

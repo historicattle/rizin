@@ -198,28 +198,28 @@
 // ECoff local symbol type.
 #define ECOFF_LOCAL_SYM_ST_NIL        0 // Dummy entry
 #define ECOFF_LOCAL_SYM_ST_GLOBAL     1 // Global variable
-#define ECOFF_LOCAL_SYM_ST_STATIC     2 //  Static variable
-#define ECOFF_LOCAL_SYM_ST_PARAM      3 //  Procedure argument
-#define ECOFF_LOCAL_SYM_ST_LOCAL      4 //  Local variable
-#define ECOFF_LOCAL_SYM_ST_LABEL      5 //  Label
-#define ECOFF_LOCAL_SYM_ST_PROC       6 //  Global procedure
-#define ECOFF_LOCAL_SYM_ST_BLOCK      7 //  Start of block
-#define ECOFF_LOCAL_SYM_ST_END        8 //  End of block, file, or procedure
-#define ECOFF_LOCAL_SYM_ST_MEMBER     9 //  Member of class, structure, union, or enumeration
-#define ECOFF_LOCAL_SYM_ST_TYPEDEF    10 //  User-defined type definition
-#define ECOFF_LOCAL_SYM_ST_FILE       11 //  Source file name
+#define ECOFF_LOCAL_SYM_ST_STATIC     2 // Static variable
+#define ECOFF_LOCAL_SYM_ST_PARAM      3 // Procedure argument
+#define ECOFF_LOCAL_SYM_ST_LOCAL      4 // Local variable
+#define ECOFF_LOCAL_SYM_ST_LABEL      5 // Label
+#define ECOFF_LOCAL_SYM_ST_PROC       6 // Global procedure
+#define ECOFF_LOCAL_SYM_ST_BLOCK      7 // Start of block
+#define ECOFF_LOCAL_SYM_ST_END        8 // End of block, file, or procedure
+#define ECOFF_LOCAL_SYM_ST_MEMBER     9 // Member of class, structure, union, or enumeration
+#define ECOFF_LOCAL_SYM_ST_TYPEDEF    10 // User-defined type definition
+#define ECOFF_LOCAL_SYM_ST_FILE       11 // Source file name
 #define ECOFF_LOCAL_SYM_ST_REGRELOC   12 // register relocation
 #define ECOFF_LOCAL_SYM_ST_FORWARD    13 // forwarding address
-#define ECOFF_LOCAL_SYM_ST_STATICPROC 14 //  Static procedure
-#define ECOFF_LOCAL_SYM_ST_CONSTANT   15 //  Constant data
+#define ECOFF_LOCAL_SYM_ST_STATICPROC 14 // Static procedure
+#define ECOFF_LOCAL_SYM_ST_CONSTANT   15 // Constant data
 #define ECOFF_LOCAL_SYM_ST_STAPARAM   16 // Fortran static parameters
-#define ECOFF_LOCAL_SYM_ST_BASE       17 //  Base class (for example, C++)
-#define ECOFF_LOCAL_SYM_ST_VIRTBASE   18 //  Virtual base class (for example, C++)
-#define ECOFF_LOCAL_SYM_ST_TAG        19 //  Data structure tag value (for example, C++ class or struct)
-#define ECOFF_LOCAL_SYM_ST_INTER      20 //  Interlude (for example, C++)
-#define ECOFF_LOCAL_SYM_ST_MODULE     22 // Fortran90 module definition
-#define ECOFF_LOCAL_SYM_ST_NAMESPACE  22 //  Namespace definition (for example, C++)
-#define ECOFF_LOCAL_SYM_ST_MODVIEW    23 // Modifiers for current view of given module;
+#define ECOFF_LOCAL_SYM_ST_BASE       17 // Base class (for example, C++)
+#define ECOFF_LOCAL_SYM_ST_VIRTBASE   18 // Virtual base class (for example, C++)
+#define ECOFF_LOCAL_SYM_ST_TAG        19 // Data structure tag value (for example, C++ class or struct)
+#define ECOFF_LOCAL_SYM_ST_INTER      20 // Interlude (for example, C++)
+#define ECOFF_LOCAL_SYM_ST_MODULE     22 // Fortran90 module definition - conflicts with Namespace
+#define ECOFF_LOCAL_SYM_ST_NAMESPACE  22 // Namespace definition (for example, C++)
+#define ECOFF_LOCAL_SYM_ST_MODVIEW    23 // Modifiers for current view of given module - conflicts with Using
 #define ECOFF_LOCAL_SYM_ST_USING      23 // Namespace use (for example, C++ "using").
 #define ECOFF_LOCAL_SYM_ST_ALIAS      24 // Defines an alias for another symbols. Currently, only used for namespace aliases.
 #define ECOFF_LOCAL_SYM_ST_STRUCT     26 // Beginning of block defining a struct type
@@ -300,8 +300,8 @@ typedef struct ecoff_aouthdr_mips_t {
 ECOFF_GEN_TYPES(32);
 ECOFF_GEN_TYPES(64);
 
-#define COFF_SYMBOLIC_HDR_32_SIZE 96
-#define COFF_SYMBOLIC_HDR_64_SIZE 144
+#define COFF_SYMBOLIC_HDR_SIZE_32 96
+#define COFF_SYMBOLIC_HDR_SIZE_64 144
 
 typedef struct ecoff_symbol_t {
 	char e_name[8]; /* symbol entry name or an index to a name */
@@ -328,18 +328,26 @@ typedef struct ecoff_reloc_mips_t {
 } ECoff_Reloc_Mips;
 
 typedef struct ecoff_32_t {
+	bool big_endian;
 	ECoff_Header_32 header;
+	union {
+		ECoff_AOutHdr_Mips mips;
+	} aouthdr;
 	ECoff_SymHdr_32 symhdr;
+	RzVector /*<ECoff_Section_32>*/ *sections;
 	RzVector /*<ECoff_FileDescEntry_32>*/ *file_descs;
 	RzVector /*<ECoff_ProcDescrEntry_32>*/ *proc_descs;
 	RzVector /*<ECoff_LocalSymbol_32>*/ *local_symbols;
 	RzVector /*<ECoff_ExternSymbol_32>*/ *extern_symbols;
-	RzVector /*<ECoff_Section_32>*/ *sections;
 	RzVector /*<ECoff_Symbol_Old>*/ *symbols_old;
 } ECoff_32;
 
 typedef struct ecoff_64_t {
+	bool big_endian;
 	ECoff_Header_64 header;
+	union {
+		ECoff_AOutHdr_Alpha alpha;
+	} aouthdr;
 	ECoff_SymHdr_64 symhdr;
 	RzVector /*<ECoff_Section_64>*/ *sections;
 	RzVector /*<ECoff_FileDescEntry_64>*/ *file_descs;
@@ -348,17 +356,17 @@ typedef struct ecoff_64_t {
 	RzVector /*<ECoff_ExternSymbol_64>*/ *extern_symbols;
 } ECoff_64;
 
+typedef enum {
+	ECOFF32 = 0,
+	ECOFF64,
+} ECoff_Type;
+
 typedef struct ecoff_t {
-	bool big_endian;
-	ut16 f_magic;
+	ECoff_Type type;
 	union {
 		ECoff_64 ecoff64;
 		ECoff_32 ecoff32;
 	};
-	union {
-		ECoff_AOutHdr_Mips mips;
-		ECoff_AOutHdr_Alpha alpha;
-	} aouthdr;
 } ECoff;
 
 void ecoff_free(ECoff *ecoff);

@@ -114,7 +114,7 @@
 		ut32 localoff; /* : 8 | Bias value for accessing local symbols on the stack at run time. */ \
 		st16 framereg; /* Frame pointer register number. */ \
 		st16 pcreg; /* PC (Program Counter) register number. */ \
-	} ECoff_ProcDescrEntry_##size
+	} ECoff_ProcDescEntry_##size
 
 #define ECOFF_GEN_LOC_SYM(size) \
 	typedef struct ecoff_local_symbol_##size##_t { \
@@ -124,6 +124,8 @@
 		ut32 sc; /* : 5 | Storage class */ \
 		ut32 reserved; /* : 1 | Must be zero. */ \
 		ut32 index; /* : 20 | An index into either the local symbol table or auxiliary symbol table. */ \
+		/* not part of the actual section object */ \
+		char *resolved_name; \
 	} ECoff_LocalSymbol_##size
 
 #define ECOFF_GEN_EXT_SYM(size) \

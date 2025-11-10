@@ -86,16 +86,14 @@ RZ_API RZ_OWN RzVector *rz_vector_clone(
 	RZ_NONNULL RZ_BORROW RZ_IN const RzVector *vec);
 
 static inline bool rz_vector_empty(const RzVector *vec) {
-	rz_return_val_if_fail(vec, false);
-	return vec->len == 0;
+	return vec && vec->len == 0;
 }
 
 RZ_API void rz_vector_clear(RzVector *vec);
 
 // returns the length of the vector
 static inline size_t rz_vector_len(const RzVector *vec) {
-	rz_return_val_if_fail(vec, 0);
-	return vec->len;
+	return vec && vec->len;
 }
 
 // returns a pointer to the offset inside the array where the element of the index lies.

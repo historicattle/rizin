@@ -19,6 +19,9 @@ rz_demangler_sources = [
   'demangler.c'
 ]
 
+libdemangle_proj = subproject('libdemangle', default_options: libdemangle_options)
+libdemangle_dep = libdemangle_proj.get_variable('libdemangle_dep')
+
 dependencies = [rz_util_dep, libdemangle_dep]
 
 rz_demangler = library('rz_demangler', rz_demangler_sources,

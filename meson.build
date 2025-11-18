@@ -317,9 +317,6 @@ else
   libdemangle_options += 'use_gpl=false'
 endif
 
-libdemangle_proj = subproject('libdemangle', default_options: libdemangle_options)
-libdemangle_dep = libdemangle_proj.get_variable('libdemangle_dep')
-
 # handle blake3 algo
 blake3_dep = dependency('libblake3', required: get_option('use_sys_blake3'), static: is_static_build)
 if not blake3_dep.found()

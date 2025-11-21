@@ -201,6 +201,8 @@ RZ_API bool Ht_(delete)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key);
 RZ_API VALUE_TYPE Ht_(find)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key, RZ_NULLABLE bool *found);
 RZ_API VALUE_TYPE Ht_(find_rc)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key, RZ_NULLABLE bool *found, RZ_NULLABLE RZ_OUT size_t *ref_count);
 RZ_API bool Ht_(delete_rc)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key);
+RZ_API size_t Ht_(inc_rc)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key, size_t n);
+RZ_API size_t Ht_(get_rc)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key);
 // Iterates over all elements in the hashtable, calling the cb function on each Kv.
 // If the cb returns false, the iteration is stopped.
 // cb should not modify the hashtable.

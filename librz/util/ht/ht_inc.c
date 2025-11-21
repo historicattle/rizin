@@ -518,6 +518,39 @@ RZ_API VALUE_TYPE Ht_(find_rc)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key, R
 	return res ? res->value : HT_NULL_VALUE;
 }
 
+/**
+ * \brief Increases the reference count for the key/value pair by \p n.
+ *
+ * \return The new reference count or 0 in case of failure or if the hash table
+ * has reference counting not enabled.
+ */
+RZ_API size_t Ht_(inc_rc)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key, size_t n) {
+	rz_return_val_if_fail(ht, 0);
+	bool found;
+	HT_(Kv) *res = Ht_(find_kv)(ht, key, &found);
+	if (found && res && ht->opt.ref_counting) {
+		res->rc += n;
+		return res->rc;
+	}
+	return 0;
+}
+
+/**
+ * \brief Get the reference count for the key/value pair.
+ *
+ * \return The reference count or 0 in case of failure or if the hash table
+ * has reference counting not enabled.
+ */
+RZ_API size_t Ht_(get_rc)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key) {
+	rz_return_val_if_fail(ht, 0);
+	bool found;
+	HT_(Kv) *res = Ht_(find_kv)(ht, key, &found);
+	if (found && res && ht->opt.ref_counting) {
+		return res->rc;
+	}
+	return 0;
+}
+
 static bool Ht_(delete_internal)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key, bool respect_rc) {
 	rz_return_val_if_fail(ht, false);
 	HT_(Bucket) *bt = &ht->table[bucketfn(ht, key)];
@@ -527,7 +560,7 @@ static bool Ht_(delete_internal)(RZ_NONNULL HtName_(Ht) *ht, const KEY_TYPE key,
 
 	BUCKET_FOREACH(ht, bt, j, kv) {
 		if (is_kv_equal(ht, key, key_len, kv)) {
-			if (respect_rc && kv->rc > 1) {
+			if (respect_rc && kv->rc >= 1) {
 				// Just drop reference and return.
 				kv->rc--;
 				return false;

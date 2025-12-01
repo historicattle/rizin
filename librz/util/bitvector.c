@@ -30,6 +30,21 @@ ut8 reverse_lt_8bits(ut8 x, ut8 w) {
 }
 
 /**
+ * \brief Resize or allocate bv->large_a to \p new_size bytes.
+ */
+static void resize_large_a(RzBitVector *bv, size_t n_bytes) {
+	if (bv->stack_alloc) {
+		bv->bits.large_a = RZ_NEWS0(ut8, n_bytes);
+		bv->stack_alloc = false;
+	} else if (!bv->bits.large_a) {
+		bv->bits.large_a = RZ_NEWS0(ut8, n_bytes);
+	} else {
+		bv->bits.large_a = realloc(bv->bits.large_a, n_bytes);
+	}
+	bv->_elem_len = n_bytes;
+}
+
+/**
  * \brief Initialize a RzBitVector structure
  * \param bv Pointer to a uninitialized RzBitVector instance
  * \param length int, the length of bitvector
@@ -57,7 +72,7 @@ RZ_API bool rz_bv_init(RZ_NONNULL RzBitVector *bv, ut32 length) {
  */
 RZ_API void rz_bv_fini(RZ_NONNULL RzBitVector *bv) {
 	rz_return_if_fail(bv);
-	if (bv->bits.large_a) {
+	if (bv->bits.large_a && !bv->stack_alloc) {
 		free(bv->bits.large_a);
 	}
 	memset(bv, 0, sizeof(RzBitVector));
@@ -1817,12 +1832,7 @@ RZ_API bool rz_bv_cast_inplace(RZ_INOUT RZ_NONNULL RzBitVector *bv, ut32 to_size
 	}
 	if (NELEM(to_size, BV_ELEM_SIZE) > bv->_elem_len) {
 		// The bit vector needs a larger buffer.
-		if (!bv->bits.large_a) {
-			bv->bits.large_a = RZ_NEWS0(ut8, NELEM(to_size, BV_ELEM_SIZE));
-		} else {
-			bv->bits.large_a = realloc(bv->bits.large_a, NELEM(to_size, BV_ELEM_SIZE));
-		}
-		bv->_elem_len = NELEM(to_size, BV_ELEM_SIZE);
+		resize_large_a(bv, NELEM(to_size, BV_ELEM_SIZE));
 	}
 	if (bv->len <= 64) {
 		// This was a small bit vector and now is a large one.

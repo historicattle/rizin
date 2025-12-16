@@ -122,7 +122,7 @@ int test_rz_str_search_single_simple(void) {
 	}
 
 	rz_search_collection_free(collection);
-
+	rz_list_free(hits);
 	mu_end;
 }
 
@@ -195,6 +195,7 @@ int test_rz_str_search_io_simple(void) {
 	mu_assert_eq(hit->address, 0x004005ea, "Incorrect address");
 
 	rz_search_collection_free(collection);
+	rz_list_free(hits);
 	mu_end;
 }
 

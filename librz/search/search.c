@@ -567,11 +567,13 @@ typedef struct search_ctx {
 static void print_intervals(RZ_NONNULL RzThreadQueue *intervals) {
 	rz_return_if_fail(intervals);
 
-	RzSearchInterval *search_interval = NULL;
-	while ((search_interval = rz_th_queue_pop(intervals, false))) {
+	void *data = NULL;
+	while (rz_th_queue_pop(intervals, false, &data) && data) {
+		RzSearchInterval *search_interval = (RzSearchInterval *)data;
 		RzInterval *itv = &search_interval->interval;
 		eprintf("[0x%" PFMT64x ", 0x%" PFMT64x "): %" PFMTSZu "\n", itv->addr, itv->addr + itv->size,
 			search_interval->n_hits);
+		data = NULL;
 	}
 }
 

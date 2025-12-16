@@ -220,10 +220,12 @@ static bool string_find(RzSearchFindOpt *fopt, void *user, ut64 offset, const Rz
 	rz_return_val_if_fail(fopt, false);
 
 	StringSearch *ss = (StringSearch *)user;
-	size_t *thread_id = rz_th_queue_pop(ss->thread_ids, false);
-	if (!thread_id) {
+	void *data;
+	if (!rz_th_queue_pop(ss->thread_ids, false, &data) || !data) {
 		return false;
 	}
+
+	size_t *thread_id = data;
 	RzPVector *strings = rz_pvector_at(ss->strings, *thread_id);
 
 	void **it_m = NULL;

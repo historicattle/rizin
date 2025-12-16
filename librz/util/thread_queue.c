@@ -27,7 +27,7 @@ struct rz_th_queue_t {
 	bool closed; ///< Defines if the queue is closed (i.e. reads or writes cannot be performed).
 };
 
-RZ_API RZ_OWN RzThreadQueue *th_queue_new(RzThreadQueueSize max_size, RzList *list) {
+RZ_API RZ_OWN RzThreadQueue *th_queue_new(RzThreadQueueSize max_size, RzList /*<void *>*/ *list) {
 	RzThreadQueue *queue = RZ_NEW0(RzThreadQueue);
 	if (!queue) {
 		return NULL;

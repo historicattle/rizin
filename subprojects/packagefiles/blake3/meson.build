@@ -1,5 +1,5 @@
 project('blake3', 'c',
-  version: '1.3.1',
+  version: '1.8.3',
   license: 'CC0-1.0',
   meson_version: '>=0.55.0',
   default_options: [

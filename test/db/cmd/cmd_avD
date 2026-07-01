@@ -1259,3 +1259,204 @@ EXPECT=<<EOF
 \           0x100003e94      ret
 EOF
 RUN
+
+NAME=Rust Any
+BROKEN=1
+FILE=bins/elf/rust_any
+CMDS=<<EOF
+aaa
+avrr
+avD @ dbg.call
+pdf @ dbg.call~Virtual call
+pdf @ dbg.call~Any::type_id
+pdf @ dbg.call~Any downcast
+EOF
+EXPECT=<<EOF
+| 0x00013a8f      call  qword [rsi+0x18]                               ; rust_any.rs:24 ; Virtual call: dbg.say
+| 0x00013a9b      call  qword [rbx+0x18]                               ; Any::type_id: impl_T
+| 0x00013aa3      pcmpeqb xmm0, xmmword [data.00004d30]                ; arg7 ; Any downcast: impl_T
+EOF
+RUN
+
+NAME=Rust devirtualization
+FILE=bins/elf/dwarf_rust_bubble
+CMDS=<<EOF
+aaa
+avD @ 0x00005270
+pdf @ 0x00005270
+EOF
+EXPECT=<<EOF
+            ; CALL XREF from dbg.main @ 0x5875
+            ;-- rust::bubble_sort::h0777bc845caabc60:
+            ;-- method.rust::bubble_sort.h0777bc845caabc60:
+            ;-- dbg.bubble_sort_i32:
+            ;-- rip:
+/ void bubble_sort<i32>(struct &mut [i32] values)
+|           ; var int64_t arg1 @ rdi
+|           ; var int64_t arg2 @ rsi
+|           ; var long long unsigned int arg3 @ stack - 0xb8
+|           ; var int64_t var_a9h @ stack - 0xa9
+|           ; var int64_t var_a8h @ stack - 0xa8
+|           ; var int64_t var_a0h @ stack - 0xa0
+|           ; var int64_t arg4 @ stack - 0x98
+|           ; var int64_t var_90h @ stack - 0x90
+|           ; var int64_t var_88h @ stack - 0x88
+|           ; var int64_t var_80h @ stack - 0x80
+|           ; var long long unsigned int var_78h @ stack - 0x78
+|           ; var long long unsigned int var_70h @ stack - 0x70
+|           ; var int64_t var_68h @ stack - 0x68
+|           ; var int64_t var_59h @ stack - 0x59
+|           ; var int64_t var_58h @ stack - 0x58
+|           ; var int64_t var_50h @ stack - 0x50
+|           ; var int64_t arg_47h @ stack - 0x48
+|           ; var int64_t var_40h @ stack - 0x40
+|           ; var int64_t var_38h @ stack - 0x38
+|           ; var int64_t var_30h @ stack - 0x30
+|           ; var int64_t var_28h @ stack - 0x28
+|           ; var int64_t var_20h @ stack - 0x20
+|           ; var int64_t var_18h @ stack - 0x18
+|           ; var int64_t var_10h @ stack - 0x10
+|           ; var int64_t var_8h @ stack - 0x8
+|           ; arg struct &mut [i32] values @ stack + 0x90
+|           0x00005270      sub   rsp, 0xb8                            ; rust.rs:1 ; rust::bubble_sort::h0777bc845caabc60
+|           0x00005277      mov   qword [var_28h], rdi                 ; arg1
+|           0x0000527f      mov   qword [var_20h], rsi                 ; arg2
+|           0x00005287      mov   qword [var_70h], rdi                 ; arg1
+|           0x0000528c      mov   qword [var_78h], rsi                 ; arg2
+|           0x00005291      call  dbg.len<i32>                         ; rust.rs:2 ; usize len<i32>(struct &[i32] self)
+|           0x00005296      mov   qword [var_68h], rax
+|           0x0000529b      mov   byte [var_59h], 0x01                 ; rust.rs:3
+|           ; CODE XREF from dbg.bubble_sort<i32> @ 0x5441
+|       .-> 0x000052a0      test  byte [var_59h], 0x01                 ; rust.rs:5
+|      ,==< 0x000052a5      jnz   0x52af
+|      |:   0x000052a7      add   rsp, 0xb8                            ; rust.rs:17
+|      |:   0x000052ae      ret
+|      `--> 0x000052af      mov   byte [var_59h], 0x00                 ; rust.rs:6
+|       :   0x000052b4      mov   rax, qword [var_68h]                 ; rust.rs:8
+|       :   0x000052b9      mov   qword [var_58h], 0x01
+|       :   0x000052c2      mov   qword [var_50h], rax
+|       :   0x000052c7      mov   rdi, qword [var_58h]                 ; int64_t arg1
+|       :   0x000052cc      mov   rsi, qword [var_50h]                 ; int64_t arg2
+|       :   0x000052d1      call  dbg.into_iter<core::ops::range::Range<usize>> ; struct Range<usize> into_iter<core::ops::range::Range<usize>>(struct Range<usize> self)
+|       :   0x000052d6      mov   qword [var_80h], rax
+|       :   0x000052db      mov   qword [var_88h], rdx
+|       :   0x000052e0      mov   rax, qword [var_80h]                 ; rust.rs
+|       :   0x000052e5      mov   qword [arg_47h], rax                 ; rust.rs:8
+|       :   0x000052ea      mov   rcx, qword [var_88h]
+|       :   0x000052ef      mov   qword [var_40h], rcx
+|       :   ; CODE XREF from dbg.bubble_sort<i32> @ 0x5432
+|      .--> 0x000052f4      lea   rdi, qword [arg_47h]                 ; rust.rs ; int64_t arg_47h
+|      ::   0x000052f9      call  dbg.next<usize>                      ; rust.rs:8 ; struct Option<usize> next<usize>(struct Range<usize> *self)
+|      ::   0x000052fe      mov   qword [var_30h], rdx
+|      ::   0x00005306      mov   qword [var_38h], rax
+|      ::   0x0000530e      mov   rax, qword [var_38h]
+|      ::   0x00005316      test  rax, rax
+|     ,===< 0x00005319      jz    0x531f
+|    ,====< 0x0000531b      jmp   0x531d
+|    ||::   ; CODE XREF from dbg.bubble_sort<i32> @ 0x531b
+|   ,`----> 0x0000531d      jmp   0x5342
+|   | `---> 0x0000531f      mov   rax, qword [var_68h]                 ; rust.rs:15
+|   |  ::   0x00005324      sub   rax, 0x01
+|   |  ::   0x0000532a      setb  cl
+|   |  ::   0x0000532d      test  cl, 0x01                             ; r8 ; "ELF\U00000002\U00000001\U00000001"
+|   |  ::   0x00005330      mov   qword [var_90h], rax
+|   | ,===< 0x00005335      jnz   0x54ba
+|   |,====< 0x0000533b      jmp   0x5437
+..
+|   |||::   ; CODE XREF from dbg.bubble_sort<i32> @ 0x531d
+|   `-----> 0x00005342      mov   rax, qword [var_30h]                 ; rust.rs:8
+|    ||::   0x0000534a      mov   qword [var_18h], rax
+|    ||::   0x00005352      mov   qword [var_10h], rax
+|    ||::   0x0000535a      mov   qword [var_8h], rax
+|    ||::   0x00005362      mov   rcx, rax                             ; rust.rs:9
+|    ||::   0x00005365      sub   rcx, 0x01
+|    ||::   0x0000536c      setb  dl
+|    ||::   0x0000536f      test  dl, 0x01                             ; r8 ; "ELF\U00000002\U00000001\U00000001"
+|    ||::   0x00005372      mov   qword [arg4], rax
+|    ||::   0x00005377      mov   qword [var_a0h], rcx
+|   ,=====< 0x0000537c      jnz   0x5446
+|   |||::   0x00005382      mov   rax, qword [var_a0h]                 ; rust.rs
+|   |||::   0x00005387      mov   rcx, qword [var_78h]
+|   |||::   0x0000538c      cmp   rax, rcx                             ; rust.rs:9
+|   |||::   0x0000538f      setb  dl
+|   |||::   0x00005392      test  dl, 0x01                             ; r8 ; "ELF\U00000002\U00000001\U00000001"
+|  ,======< 0x00005395      jnz   0x539c
+| ,=======< 0x00005397      jmp   0x5464
+| |`------> 0x0000539c      mov   rax, qword [var_a0h]                 ; rust.rs
+| | |||::   0x000053a1      shl   rax, 0x02                            ; rust.rs:9
+| | |||::   0x000053a5      mov   rcx, qword [var_70h]
+| | |||::   0x000053aa      add   rcx, rax
+| | |||::   0x000053ad      mov   rax, qword [arg4]
+| | |||::   0x000053b2      mov   rdx, qword [var_78h]
+| | |||::   0x000053b7      cmp   rax, rdx
+| | |||::   0x000053ba      setb  sil
+| | |||::   0x000053be      test  sil, 0x01                            ; r8 ; "ELF\U00000002\U00000001\U00000001"
+| | |||::   0x000053c2      mov   qword [var_a8h], rcx
+| |,======< 0x000053c7      jnz   0x53ce
+| ========< 0x000053c9      jmp   0x5480
+| |`------> 0x000053ce      mov   rax, qword [arg4]                    ; rust.rs
+| | |||::   0x000053d3      shl   rax, 0x02                            ; rust.rs:9
+| | |||::   0x000053d7      mov   rcx, qword [var_70h]
+| | |||::   0x000053dc      add   rcx, rax
+| | |||::   0x000053df      mov   rdi, qword [var_a8h]                 ; int64_t arg1
+| | |||::   0x000053e4      mov   rsi, rcx                             ; long long unsigned int arg2
+| | |||::   0x000053e7      call  dbg.gt
+| | |||::   0x000053ec      mov   byte [var_a9h], al
+| | |||::   0x000053f0      mov   al, byte [var_a9h]                   ; rust.rs
+| | |||::   0x000053f4      test  al, 0x01                             ; rust.rs:9 ; r8 ; "ELF\U00000002\U00000001\U00000001"
+| |,======< 0x000053f6      jnz   0x53fa
+| ========< 0x000053f8      jmp   0x5432
+| |`------> 0x000053fa      mov   rax, qword [arg4]                    ; rust.rs
+| | |||::   0x000053ff      sub   rax, 0x01                            ; rust.rs:10
+| | |||::   0x00005405      setb  cl
+| | |||::   0x00005408      test  cl, 0x01                             ; r8 ; "ELF\U00000002\U00000001\U00000001"
+| | |||::   0x0000540b      mov   qword [rsp], rax
+| |,======< 0x0000540f      jnz   0x549c
+| |||||::   0x00005415      mov   rdi, qword [var_70h]                 ; rust.rs ; int64_t arg1
+| |||||::   0x0000541a      mov   rsi, qword [var_78h]                 ; long long unsigned int arg2
+| |||||::   0x0000541f      mov   rdx, qword [rsp]                     ; long long unsigned int arg3
+| |||||::   0x00005423      mov   rcx, qword [arg4]                    ; int64_t arg4
+| |||||::   0x00005428      call  dbg.swap<i32>                        ; rust.rs:10 ;  swap<i32>(struct &mut [i32] self, usize a, usize b)
+| |||||::   0x0000542d      mov   byte [var_59h], 0x01                 ; rust.rs:11
+| ||||||:   ; CODE XREF from dbg.bubble_sort<i32> @ 0x53f8
+| -----`==< 0x00005432      jmp   0x52f4                               ; rust.rs:8
+| ||||| :   ; CODE XREF from dbg.bubble_sort<i32> @ 0x533b
+| |||`----> 0x00005437      mov   rax, qword [var_90h]                 ; rust.rs
+| ||| | :   0x0000543c      mov   qword [var_68h], rax                 ; rust.rs:15
+| ||| | `=< 0x00005441      jmp   0x52a0                               ; rust.rs:5
+| ||| |     ; DATA XREF from method._rustc_demangle::legacy::Demangle_as_core::fmt::Display_::fmt.hbbd9e1822966e201 @ 0x2385c
+| ||| |     ;-- (0x00005447) data.00005447:
+| ||`-----> 0x00005446  ~   lea   rdi, qword obj.str.0                 ; rust.rs:9 ; 0x2a010 ; "attempt to subtract with overflowBefore: \nAfter: beachartcardealempty/usr/src/rustc-1.43.0/src/libcore/slice/mod.rscalled `Opti"
+| ||  |     0x0000544d      lea   rdx, qword sym..data.rel.ro          ; 0x382b8 ; ""
+| ||  |     0x00005454      lea   rax, qword [dbg.panic]               ; 0x25930 ; "H\x83\xecHH\x89|$\bH\x89t$\U00000010H\x8dD$\bH\x89D$\U00000018H\xc7D$ \U00000001"
+| ||  |     0x0000545b      mov   esi, 0x21                            ; '!'
+| ||  |     0x00005460      call  rax                                  ; Virtual call: dbg.panic
+| ||  |     0x00005462      ud2
+| ||  |     ; CODE XREF from dbg.bubble_sort<i32> @ 0x5397
+| `-------> 0x00005464      lea   rdi, qword data.000382d0             ; 0x382d0 ; ""
+|  |  |     0x0000546b      lea   rax, qword [dbg.panic_bounds_check]  ; 0x25980 ; "H\x83\xechH\x89\xf8H\x89t$\bH\x89T$\U00000010H\x8dL$\U00000010H\x89L$\U00000018H\x8d\r\U0000001e\xfe\xff\xffH\x89L$ H\x8dT$\bH\x"
+|  |  |     0x00005472      mov   rsi, qword [var_a0h]
+|  |  |     0x00005477      mov   rdx, qword [var_78h]
+|  |  |     0x0000547c      call  rax                                  ; Virtual call: dbg.panic_bounds_check
+|  |  |     0x0000547e      ud2
+|  |  |     ; CODE XREF from dbg.bubble_sort<i32> @ 0x53c9
+| --------> 0x00005480      lea   rdi, qword data.000382e8             ; 0x382e8 ; ""
+|  |  |     0x00005487      lea   rax, qword [dbg.panic_bounds_check]  ; 0x25980 ; "H\x83\xechH\x89\xf8H\x89t$\bH\x89T$\U00000010H\x8dL$\U00000010H\x89L$\U00000018H\x8d\r\U0000001e\xfe\xff\xffH\x89L$ H\x8dT$\bH\x"
+|  |  |     0x0000548e      mov   rsi, qword [arg4]
+|  |  |     0x00005493      mov   rdx, qword [var_78h]
+|  |  |     0x00005498      call  rax                                  ; Virtual call: dbg.panic_bounds_check
+|  |  |     0x0000549a      ud2
+|  `------> 0x0000549c      lea   rdi, qword obj.str.0                 ; rust.rs:10 ; 0x2a010 ; "attempt to subtract with overflowBefore: \nAfter: beachartcardealempty/usr/src/rustc-1.43.0/src/libcore/slice/mod.rscalled `Opti"
+|     |     0x000054a3      lea   rdx, qword data.00038300             ; 0x38300 ; ""
+|     |     0x000054aa      lea   rax, qword [dbg.panic]               ; 0x25930 ; "H\x83\xecHH\x89|$\bH\x89t$\U00000010H\x8dD$\bH\x89D$\U00000018H\xc7D$ \U00000001"
+|     |     0x000054b1      mov   esi, 0x21                            ; '!'
+|     |     0x000054b6      call  rax                                  ; Virtual call: dbg.panic
+|     |     0x000054b8      ud2
+|     `---> 0x000054ba      lea   rdi, qword obj.str.0                 ; rust.rs:15 ; 0x2a010 ; "attempt to subtract with overflowBefore: \nAfter: beachartcardealempty/usr/src/rustc-1.43.0/src/libcore/slice/mod.rscalled `Opti"
+|           0x000054c1      lea   rdx, qword data.00038318             ; 0x38318 ; ""
+|           0x000054c8      lea   rax, qword [dbg.panic]               ; 0x25930 ; "H\x83\xecHH\x89|$\bH\x89t$\U00000010H\x8dD$\bH\x89D$\U00000018H\xc7D$ \U00000001"
+|           0x000054cf      mov   esi, 0x21                            ; '!'
+|           0x000054d4      call  rax                                  ; Virtual call: dbg.panic
+\           0x000054d6      ud2
+EOF
+RUN

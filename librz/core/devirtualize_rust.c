@@ -12,6 +12,7 @@
 #define RUST_MAX_CALL_ARGS          8
 #define RUST_TRACK_MEM_ADDR         0x10000000
 #define RUST_TRACK_MEM_SIZE         0x50000
+#define RUST_STACK_PTR              (RUST_TRACK_MEM_ADDR + (RUST_TRACK_MEM_SIZE / 2))
 #define RUST_SCRATCH_HEAP_ADDR      (RUST_TRACK_MEM_ADDR + 0x30000)
 #define RUST_SCRATCH_HEAP_SIZE      0x20000
 #define RUST_SCRATCH_ALLOC_STEP     0x100
@@ -683,18 +684,24 @@ static bool op_is_dispatch_candidate(RzCore *core, RzAnalysisOp *op) {
 }
 
 static void track_init(RzCore *core, RZ_NULLABLE const RustCallSeed *seed) {
-	rz_core_analysis_esil_init_mem(core, NULL, RUST_TRACK_MEM_ADDR, RUST_TRACK_MEM_SIZE);
-	rz_core_analysis_il_reinit(core);
-
-	if (!seed) {
-		return;
-	}
-
-	for (ut64 i = 0; i < seed->count; i++) {
-		if (seed->has_value[i]) {
-			rz_analysis_il_vm_set_unsigned(core->analysis, seed->regs[i], seed->values[i]);
+	RzReg *reg = rz_analysis_get_reg(core->analysis);
+	if (reg) {
+		rz_reg_set_value_by_role(reg, RZ_REG_NAME_SP, RUST_STACK_PTR);
+		rz_reg_set_value_by_role(reg, RZ_REG_NAME_BP, RUST_STACK_PTR);
+		if (seed) {
+			for (ut64 i = 0; i < seed->count; i++) {
+				if (!seed->has_value[i]) {
+					continue;
+				}
+				RzRegItem *item = rz_reg_get(reg, seed->regs[i], RZ_REG_TYPE_ANY);
+				if (item) {
+					rz_reg_set_value(reg, item, seed->values[i]);
+				}
+			}
 		}
 	}
+	rz_core_analysis_esil_init_mem(core, NULL, RUST_TRACK_MEM_ADDR, RUST_TRACK_MEM_SIZE);
+	rz_core_analysis_il_reinit(core);
 }
 
 static void track_fini(RzCore *core) {
@@ -793,34 +800,33 @@ static bool op_has_type_id(RzCore *core, RzAnalysisOp *op, ut64 low, ut64 high, 
 	return op_has_scalar_imm(op, low) || (has_high && op_has_scalar_imm(op, high));
 }
 
-static void annotate_any_type_id_compare(RzCore *core, RzAnalysisOp *op, RzVector /*<RustAnyVTable>*/ *any_vtables) {
-	if (!any_vtables) {
-		return;
-	}
-
+static bool annotate_any_type_id_compare(RzCore *core, RzAnalysisOp *op, RzVector /*<RustAnyVTable>*/ *any_vtables, RZ_NULLABLE RustAnyVTable *pending_any) {
 	ut32 type = op->type & RZ_ANALYSIS_OP_TYPE_MASK;
 	if (type != RZ_ANALYSIS_OP_TYPE_CMP && type != RZ_ANALYSIS_OP_TYPE_ACMP) {
-		return;
+		return false;
 	}
 
-	RustAnyVTable *any;
-	rz_vector_foreach (any_vtables, any) {
-		if (!any->has_type_id) {
-			continue;
+	RustAnyVTable *matched = pending_any;
+	if (!matched && any_vtables) {
+		RustAnyVTable *any;
+		rz_vector_foreach (any_vtables, any) {
+			if (any->has_type_id && op_has_type_id(core, op, any->type_id_low, any->type_id_high, any->has_type_id_high)) {
+				matched = any;
+				break;
+			}
 		}
-		if (!op_has_type_id(core, op, any->type_id_low, any->type_id_high, any->has_type_id_high)) {
-			continue;
-		}
-		char *comment = rz_str_newf("Any downcast: %s", any->concrete_type);
+	}
+	if (matched) {
+		char *comment = rz_str_newf("Any downcast: %s", matched->concrete_type);
 		if (comment) {
 			rz_core_meta_comment_add(core, comment, op->addr);
 			free(comment);
 		}
-		break;
 	}
+	return true;
 }
 
-static void devirtualize_step(RzCore *core, RzAnalysisOp *op, RzVector /*<RustAnyVTable>*/ *any_vtables) {
+static RZ_NULLABLE RustAnyVTable *devirtualize_step(RzCore *core, RzAnalysisOp *op, RzVector /*<RustAnyVTable>*/ *any_vtables) {
 	ut64 target = UT64_MAX;
 	ut64 vtable_addr = UT64_MAX;
 	RustAnyVTable *target_any = NULL;
@@ -830,18 +836,18 @@ static void devirtualize_step(RzCore *core, RzAnalysisOp *op, RzVector /*<RustAn
 		ut64 slot_addr = UT64_MAX;
 		vtable_addr = get_reg_value(core->analysis, op->reg);
 		if (!vtable_addr || vtable_addr == UT64_MAX) {
-			return;
+			return NULL;
 		}
 
 		slot_addr = vtable_addr + op->disp;
 		if (slot_addr == UT64_MAX) {
-			return;
+			return NULL;
 		}
 
 		if (is_real_reg_name(core, op->ireg)) {
 			ut64 index = get_reg_value(core->analysis, op->ireg);
 			if (index == UT64_MAX) {
-				return;
+				return NULL;
 			}
 			ut64 scale = op->scale;
 			if (!scale) {
@@ -853,7 +859,7 @@ static void devirtualize_step(RzCore *core, RzAnalysisOp *op, RzVector /*<RustAn
 	} else if (op_is_register_target_dispatch(core, op)) {
 		target = get_reg_value(core->analysis, op->reg);
 		if (!target || target == UT64_MAX) {
-			return;
+			return NULL;
 		}
 
 		target_any = any_vtable_by_type_id_method(any_vtables, target);
@@ -871,24 +877,25 @@ static void devirtualize_step(RzCore *core, RzAnalysisOp *op, RzVector /*<RustAn
 		}
 		found = true;
 	} else {
-		return;
+		return NULL;
 	}
 
 	if (!found) {
-		return;
+		return NULL;
 	}
 
 	char *method_name = get_method_name(core, target);
 	if (!method_name) {
-		return;
+		return NULL;
 	}
 
 	RustAnyVTable *any = target_any;
 	if (!any) {
 		any = any_vtable_by_addr(any_vtables, vtable_addr);
 	}
+	bool is_any_type_id = any && (target_is_any_type_id || target == any->type_id_method);
 	char *comment = NULL;
-	if (any && (target_is_any_type_id || target == any->type_id_method)) {
+	if (is_any_type_id) {
 		comment = rz_str_newf("Any::type_id: %s", any->concrete_type);
 	} else {
 		comment = rz_str_newf("Virtual call: %s", method_name);
@@ -908,13 +915,45 @@ static void devirtualize_step(RzCore *core, RzAnalysisOp *op, RzVector /*<RustAn
 		}
 	}
 	RZ_FREE(method_name);
+	return is_any_type_id ? any : NULL;
+}
+
+static bool set_il_reg_unsigned(RzCore *core, const char *reg_name, ut64 value) {
+	if (!is_real_reg_name(core, reg_name)) {
+		return false;
+	}
+	RzAnalysisILVM *vm = rz_analysis_get_il_vm(core->analysis);
+	RzILVal *current = vm ? rz_il_vm_get_var_value(vm->vm, RZ_IL_VAR_KIND_GLOBAL, reg_name) : NULL;
+	RzBitVector *bv = current ? rz_il_value_to_bv(current) : NULL;
+	if (!bv) {
+		return false;
+	}
+	rz_bv_free(bv);
+	return rz_analysis_il_vm_set_unsigned(core->analysis, reg_name, value);
 }
 
 static void clear_dst_reg_for_skipped_op(RzCore *core, RzAnalysisOp *op) {
-	const char *dst = op_dst_reg_name(op);
-	if (is_real_reg_name(core, dst)) {
-		rz_analysis_il_vm_set_unsigned(core->analysis, dst, 0);
+	set_il_reg_unsigned(core, op_dst_reg_name(op), 0);
+}
+
+static void clear_register_dispatch_targets(RzCore *core, ut64 start, ut64 end, const ut8 *bytes) {
+	RzAnalysisOp *op = rz_analysis_op_new();
+	if (!op) {
+		return;
 	}
+	ut64 offset = 0;
+	while (start < end) {
+		if (rz_analysis_op(core->analysis, op, start, bytes + offset, end - start, RZ_ANALYSIS_OP_MASK_BASIC) <= 0 || op->size < 1) {
+			break;
+		}
+		if (op_is_register_target_dispatch(core, op)) {
+			set_il_reg_unsigned(core, op->reg, 0);
+		}
+		start += op->size;
+		offset += op->size;
+		rz_analysis_op_fini(op);
+	}
+	rz_analysis_op_free(op);
 }
 
 static void track_step_or_skip(RzCore *core, RzAnalysisOp *op, ut64 next_addr) {
@@ -993,13 +1032,20 @@ static void devirtualize_rust_function(RzCore *core, RzAnalysisFunction *functio
 	ut64 offset = 0;
 	core->offset = start;
 	track_init(core, seed);
+	clear_register_dispatch_targets(core, start, end, bytes);
+	RustAnyVTable *pending_any = NULL;
 	while (start < end) {
 		if (rz_analysis_op(core->analysis, op, start, bytes + offset, end - start, RZ_ANALYSIS_OP_MASK_ALL) <= 0 || op->size < 1) {
 			break;
 		}
 
-		devirtualize_step(core, op, any_vtables);
-		annotate_any_type_id_compare(core, op, any_vtables);
+		RustAnyVTable *called_any = devirtualize_step(core, op, any_vtables);
+		if (called_any) {
+			pending_any = called_any;
+		}
+		if (annotate_any_type_id_compare(core, op, any_vtables, pending_any)) {
+			pending_any = NULL;
+		}
 		ut64 next = start + op->size;
 		if (rz_analysis_op_is_eob(op) || rz_analysis_op_is_call(op)) {
 			advance_il_pc(core, next);
@@ -1024,10 +1070,10 @@ static void caller_replay_step(RzCore *core, RzAnalysisOp *op, ut64 next_addr, c
 		if (is_real_reg_name(core, ret_reg)) {
 			ut64 heap_end = RUST_SCRATCH_HEAP_ADDR + RUST_SCRATCH_HEAP_SIZE;
 			if (*next_scratch <= heap_end - RUST_SCRATCH_ALLOC_STEP) {
-				rz_analysis_il_vm_set_unsigned(core->analysis, ret_reg, *next_scratch);
+				set_il_reg_unsigned(core, ret_reg, *next_scratch);
 				*next_scratch += RUST_SCRATCH_ALLOC_STEP;
 			} else {
-				rz_analysis_il_vm_set_unsigned(core->analysis, ret_reg, 0);
+				set_il_reg_unsigned(core, ret_reg, 0);
 			}
 		}
 		advance_il_pc(core, next_addr);

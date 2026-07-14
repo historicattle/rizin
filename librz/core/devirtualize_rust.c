@@ -924,11 +924,9 @@ static bool set_il_reg_unsigned(RzCore *core, const char *reg_name, ut64 value) 
 	}
 	RzAnalysisILVM *vm = rz_analysis_get_il_vm(core->analysis);
 	RzILVal *current = vm ? rz_il_vm_get_var_value(vm->vm, RZ_IL_VAR_KIND_GLOBAL, reg_name) : NULL;
-	RzBitVector *bv = current ? rz_il_value_to_bv(current) : NULL;
-	if (!bv) {
+	if (!current || current->type != RZ_IL_TYPE_PURE_BITVECTOR) {
 		return false;
 	}
-	rz_bv_free(bv);
 	return rz_analysis_il_vm_set_unsigned(core->analysis, reg_name, value);
 }
 
@@ -943,7 +941,7 @@ static void clear_register_dispatch_targets(RzCore *core, ut64 start, ut64 end, 
 	}
 	ut64 offset = 0;
 	while (start < end) {
-		if (rz_analysis_op(core->analysis, op, start, bytes + offset, end - start, RZ_ANALYSIS_OP_MASK_BASIC) <= 0 || op->size < 1) {
+		if (rz_analysis_op(core->analysis, op, start, bytes + offset, end - start, RZ_ANALYSIS_OP_MASK_ALL) <= 0 || op->size < 1) {
 			break;
 		}
 		if (op_is_register_target_dispatch(core, op)) {

@@ -15,7 +15,7 @@ typedef struct rust_trait_method_t {
 	char *trait_name;
 } RustTraitMethod;
 
-static void rust_trait_method_fini(void *e, void *user) {
+static void rust_trait_method_fini(void *e, RZ_UNUSED void *user) {
 	RustTraitMethod *method = e;
 	RZ_FREE(method->name);
 	RZ_FREE(method->real_name);
@@ -70,14 +70,9 @@ static char *demangled_name_at(RzAnalysis *analysis, ut64 addr) {
 	}
 
 	if (sym && RZ_STR_ISNOTEMPTY(sym->name)) {
-		char *demangled = NULL;
 		if (analysis->binb.demangle) {
-			demangled = analysis->binb.demangle(analysis->binb.bin, "rust", sym->name);
+			return analysis->binb.demangle(analysis->binb.bin, "rust", sym->name);
 		}
-		if (demangled) {
-			return demangled;
-		}
-		RZ_FREE(demangled);
 	}
 	return NULL;
 }
@@ -289,10 +284,7 @@ RZ_API void rz_analysis_rtti_rust(RZ_NONNULL RzAnalysis *analysis) {
 	}
 
 	RzBinObject *obj = rz_bin_cur_object(analysis->binb.bin);
-	const RzPVector *sections = NULL;
-	if (obj) {
-		sections = analysis->binb.get_sections(obj);
-	}
+	const RzPVector *sections = obj ? analysis->binb.get_sections(obj) : NULL;
 	if (!sections) {
 		return;
 	}

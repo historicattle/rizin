@@ -12,7 +12,6 @@
 #define RUST_MAX_CALL_ARGS          8
 #define RUST_TRACK_MEM_ADDR         0x10000000
 #define RUST_TRACK_MEM_SIZE         0x50000
-#define RUST_STACK_PTR              (RUST_TRACK_MEM_ADDR + (RUST_TRACK_MEM_SIZE / 2))
 #define RUST_SCRATCH_HEAP_ADDR      (RUST_TRACK_MEM_ADDR + 0x30000)
 #define RUST_SCRATCH_HEAP_SIZE      0x20000
 #define RUST_SCRATCH_ALLOC_STEP     0x100
@@ -39,7 +38,7 @@ typedef struct rust_call_seed_t {
 	ut64 count;
 } RustCallSeed;
 
-static void rust_any_vtable_fini(void *e, void *user) {
+static void rust_any_vtable_fini(void *e, RZ_UNUSED void *user) {
 	RustAnyVTable *vtable = e;
 	RZ_FREE(vtable->concrete_type);
 }
@@ -282,7 +281,7 @@ static bool rust_method_is_type_id(RzAnalysisMethod *method) {
 	return method->real_name && (strstr(method->real_name, "::type_id") || strstr(method->real_name, "::get_type_id"));
 }
 
-static RzAnalysisMethod *rust_any_type_id_method(RzCore *core, RzVector /*<RzAnalysisMethod>*/ *methods) {
+static RzAnalysisMethod *rust_any_type_id_method(RzVector /*<RzAnalysisMethod>*/ *methods) {
 	if (!methods) {
 		return NULL;
 	}
@@ -344,7 +343,7 @@ static RZ_OWN RzVector /*<RustAnyVTable>*/ *rust_any_vtables_from_classes(RzCore
 		}
 
 		RzVector *methods = rz_analysis_class_method_get_all(core->analysis, class_name);
-		RzAnalysisMethod *type_id_method = rust_any_type_id_method(core, methods);
+		RzAnalysisMethod *type_id_method = rust_any_type_id_method(methods);
 		if (!type_id_method) {
 			rz_vector_free(methods);
 			continue;
@@ -511,7 +510,7 @@ static bool analysis_value_addr(RzCore *core, RZ_NULLABLE const RzAnalysisOp *op
 
 	ut64 result = value->base;
 	const char *base_reg = NULL;
-	if (value && value->reg) {
+	if (value->reg) {
 		base_reg = value->reg->name;
 	}
 	if (base_reg) {
@@ -557,11 +556,8 @@ static bool value_mem_access_is_safe(RzCore *core, RzAnalysisOp *op, RzAnalysisV
 		return false;
 	}
 
-	ut64 access_size = 1;
-	if (value->memref > 0) {
-		access_size = value->memref;
-	}
-	if (access_size && addr >= RUST_TRACK_MEM_ADDR) {
+	ut64 access_size = value->memref;
+	if (addr >= RUST_TRACK_MEM_ADDR) {
 		ut64 offset = addr - RUST_TRACK_MEM_ADDR;
 		if (offset < RUST_TRACK_MEM_SIZE && access_size <= RUST_TRACK_MEM_SIZE - offset) {
 			return true;
@@ -605,13 +601,10 @@ static const char *op_dst_reg_name(RzAnalysisOp *op) {
 }
 
 static void get_arg_regs(RzCore *core, RzAnalysisFunction *function, RZ_OUT RustArgRegs *args) {
-	const char *cc = rz_analysis_cc_default(core->analysis);
+	const char *cc = function->cc ? function->cc : rz_analysis_cc_default(core->analysis);
 	for (ut64 i = 0; i < RUST_MAX_CALL_ARGS; i++) {
 		const char *reg = rz_analysis_cc_arg(core->analysis, cc, (int)i);
-		if (!reg) {
-			break;
-		}
-		if (!is_real_reg_name(core, reg)) {
+		if (!reg || !is_real_reg_name(core, reg)) {
 			break;
 		}
 		args->regs[args->count++] = reg;
@@ -692,17 +685,6 @@ static bool op_is_dispatch_candidate(RzCore *core, RzAnalysisOp *op) {
 static void track_init(RzCore *core, RZ_NULLABLE const RustCallSeed *seed) {
 	rz_core_analysis_esil_init_mem(core, NULL, RUST_TRACK_MEM_ADDR, RUST_TRACK_MEM_SIZE);
 	rz_core_analysis_il_reinit(core);
-
-	if (rz_asm_is_arch(core->rasm, "x86")) {
-		rz_analysis_il_vm_set_unsigned(core->analysis, "rbp", RUST_STACK_PTR);
-		rz_analysis_il_vm_set_unsigned(core->analysis, "rsp", RUST_STACK_PTR);
-	} else if (rz_asm_is_arch(core->rasm, "arm")) {
-		rz_analysis_il_vm_set_unsigned(core->analysis, "fp", RUST_STACK_PTR);
-		rz_analysis_il_vm_set_unsigned(core->analysis, "sp", RUST_STACK_PTR);
-	} else {
-		const char *arch = rz_core_get_arch(core);
-		RZ_LOG_WARN("arch %s is not supported\n", arch);
-	}
 
 	if (!seed) {
 		return;

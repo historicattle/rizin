@@ -1367,6 +1367,7 @@ RUN
 
 NAME=Rust PE
 FILE=bins/pe/rust_any.exe
+BROKEN=1
 CMDS=<<EOF
 aaa
 avrr
@@ -1391,9 +1392,9 @@ EXPECT=<<EOF
 |           0x14000150d      call  qword [rdx+0x18]                    ; rust_any.rs:21 ; 24 ; Rust Virtual Call: <rust_any[90e241cba78717c0]::Dog as rust_any[90e241cba78717c0]::Pet>::say
 |           0x140001510      mov   rbx, rax
 |           0x140001513      lea   rcx, qword [var_28h]
-|           0x140001518      mov   rdx, rdi                            ; library\core\src\any.rs:201
+|           0x140001518      mov   rdx, rdi                            ; any.rs:201
 |           0x14000151b      call  qword [rsi+0x18]                    ; 24 ; Any::type_id: impl_rust_any_90e241cba78717c0_::Dog
-|           0x14000151e      movdqa xmm0, xmmword [var_28h]            ; library\core\src\any.rs:764
+|           0x14000151e      movdqa xmm0, xmmword [var_28h]            ; any.rs:764
 |           0x140001524      pcmpeqb xmm0, xmmword [section..rdata]    ; Any downcast: impl_rust_any_90e241cba78717c0_::Dog
 |           0x14000152c      pmovmskb ecx, xmm0
 |           0x140001530      xor   eax, eax

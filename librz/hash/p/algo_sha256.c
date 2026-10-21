@@ -10,7 +10,7 @@
  */
 
 #include "../algorithms/openssl_common.h"
-rz_openssl_plugin_define_hash_cfg(sha256, EVP_sha256, true);
+rz_openssl_plugin_define_hash_cfg(sha256, EVP_sha256, true, "sha256");
 
 #else /* HAVE_LIB_SSL */
 /**

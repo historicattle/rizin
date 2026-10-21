@@ -10,7 +10,7 @@
  */
 
 #include "../algorithms/openssl_common.h"
-rz_openssl_plugin_define_hash_cfg(md4, EVP_md4, true);
+rz_openssl_plugin_define_hash_cfg(md4, EVP_md4, true, "md4");
 
 #else /* HAVE_LIB_SSL */
 /**

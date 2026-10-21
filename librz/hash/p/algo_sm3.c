@@ -10,7 +10,7 @@
  */
 
 #include "../algorithms/openssl_common.h"
-rz_openssl_plugin_define_hash_cfg(sm3, EVP_sm3, true);
+rz_openssl_plugin_define_hash_cfg(sm3, EVP_sm3, true, "sm3");
 
 #else /* HAVE_LIB_SSL && HAVE_LIB_SSL_SM3 */
 /**
